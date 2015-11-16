@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+{% autoescape true %}
+<html>
+  <head>
+    <link type="text/css" rel="stylesheet" href="/bootstrap/css/bootstrap.css" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
+    <script data-require="angular.js@1.4.3" data-semver="1.4.3" src="https://code.angularjs.org/1.4.3/angular.js"></script>
+    <meta name="viewport" content="width=device-width, user-scalable=yes">
+    <title>USD INR</title>
+    <script type="text/javascript">
+        var myApp = angular.module('myApp', []);
+        myApp.controller('HomeController', function($scope, $http) {
+            $scope.money = {};
+
+            $scope.fillValues = function(resp) {
+              $scope.money = resp.data;
+            };
+
+            $scope.errorCallback = function(error) {
+              console.error("Somthing Wrong", error);
+            };
+
+            $scope.getRealRates = function() {
+              $http.get('/real').then($scope.fillValues, $scope.errorCallback);
+            };
+        });
+    </script>
+    <script type="text/javascript"
+          src="https://www.google.com/jsapi?autoload={
+            'modules':[{
+              'name':'visualization',
+              'version':'1',
+              'packages':['corechart']
+            }]
+          }"></script>
+    <script type="text/javascript">
+      google.setOnLoadCallback(drawChart);
+
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Time', 'Rate'],
+          {% for rate in rates %}
+            [new Date({[{rate.date|date_to_millis}]}), {[{rate.ex}]}],
+          {% endfor %}
+        ]);
+
+        var options = {
+          title: 'USD INR',
+          curveType: 'function',
+          legend: { position: 'bottom' }
+        };
+
+        var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+
+        chart.draw(data, options);
+      }
+    </script>
+  </head>
+  <body>
+      <div ng-app="myApp">
+        <div ng-controller="HomeController">
+          <button class="btn btn-primary" type="button" ng-click="getRealRates()">
+            Current <span class="badge">{[{money.yahoo}]}</span> Click me for real rates!
+          </button>
+
+          <button class="btn btn-primary" type="button" ng-repeat="rate in money.rates">
+            {{rate.label}} <span class="badge">{{rate.value}}</span>
+          </button>
+
+          <button class="btn btn-primary" type="button" ng-show="money.top">
+            {{money.top.provider}} <span class="badge">{{money.top.rate}}</span>
+          </button>
+        </div>
+      </div>
+      <div id="curve_chart" ></div>
+  </body>
+</html>
+{% endautoescape %}
