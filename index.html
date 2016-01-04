@@ -10,10 +10,39 @@
     <script type="text/javascript">
         var myApp = angular.module('myApp', []);
         myApp.controller('HomeController', function($scope, $http) {
-            $scope.money = {};
+            $scope.rates = {};
+
+            $scope.forecasts = [
+              ['Year','Month','OPEN','HIGH','LOW','CLOSE','AVERAGE'],
+              ['2015','December','66.45','68.79','66.09','67.44','66.95'],
+              ['2016','January','67.44','69.28','66.56','67.92','67.68'],
+              ['2016','February','67.92','68.77','66.07','67.42','67.67'],
+              ['2016','March','67.42','69.56','66.84','68.20','67.81'],
+              ['2016','April','68.20','70.95','68.17','69.56','68.88'],
+              ['2016','May','69.56','71.09','68.31','69.70','69.63'],
+              ['2016','June','69.70','71.12','68.34','69.73','69.72'],
+              ['2016','July','69.73','71.95','69.13','70.54','70.14'],
+              ['2016','August','70.54','73.00','70.14','71.57','71.06'],
+              ['2016','September','71.57','73.21','70.33','71.77','71.67'],
+              ['2016','October','71.77','72.31','69.47','70.89','71.33'],
+              ['2016','November','70.89','72.37','69.53','70.95','70.92'],
+              ['2016','December','70.95','73.17','70.31','71.74','71.35'],
+              ['2017','January','71.74','73.46','70.58','72.02','71.88'],
+              ['2017','February','72.02','73.93','71.03','72.48','72.25'],
+              ['2017','March','72.48','74.65','71.73','73.19','72.84'],
+              ['2017','April','73.19','75.04','72.10','73.57','73.38'],
+              ['2017','May','73.57','75.97','72.99','74.48','74.03'],
+              ['2017','June','74.48','75.79','72.81','74.30','74.39'],
+              ['2017','July','74.30','75.27','72.31','73.79','74.05'],
+              ['2017','August','73.79','74.23','71.31','72.77','73.28'],
+              ['2017','September','72.77','72.77','69.88','71.31','72.04'],
+              ['2017','October','71.31','72.74','69.88','71.31','71.31'],
+              ['2017','November','71.31','72.94','70.08','71.51','71.41'],
+              ['2017','December','71.51','73.09','70.23','71.66','71.59']
+            ];
 
             $scope.fillValues = function(resp) {
-              $scope.money = resp.data;
+              $scope.rates = resp.data;
             };
 
             $scope.errorCallback = function(error) {
@@ -34,9 +63,16 @@
             }]
           }"></script>
     <script type="text/javascript">
-      google.setOnLoadCallback(drawChart);
+      google.setOnLoadCallback(drawPastChart);
+      google.setOnLoadCallback(drawFutureChart);
 
-      function drawChart() {
+      var tt = {};
+      {% for result in results %}
+        dtObj = new Date({[{result.date|date_to_millis}]});
+        tt["1-"+dtObj.toLocaleString("en-us", { month: "long" })+"-"+dtObj.getFullYear()] = {[{result.max_rate}]};
+      {% endfor %}
+
+      function drawPastChart() {
         var data = google.visualization.arrayToDataTable([
           ['Time', 'Rate'],
           {% for rate in rates %}
@@ -50,29 +86,58 @@
           legend: { position: 'bottom' }
         };
 
-        var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+        var chart_past = new google.visualization.LineChart(document.getElementById('curve_chart_past'));
 
-        chart.draw(data, options);
+        chart_past.draw(data, options);
+      }
+
+      function drawFutureChart() {
+        var scope = angular.element(document.querySelector('[ng-controller="HomeController"]')).scope();
+        var x = [['Time', 'Forecast', 'Actual']], d;
+        var v = angular.copy(scope.forecasts).slice(1);
+        for (index in v) {
+            forecast = v[index];
+            d = new Date(Date.parse(forecast[1] + ",1," + forecast[0]));
+            x.push([d, parseFloat(forecast[3]), tt["1-"+forecast[1]+"-"+forecast[0]]]);
+            // (Math.floor(Math.random() * 10) + 1) % 2 == 0 && parseFloat(forecast[3]) || undefined
+        }
+        var data = google.visualization.arrayToDataTable(x);
+
+        var options = {
+          title: 'USD INR forecast by month',
+          curveType: 'function',
+          legend: { position: 'bottom' }
+        };
+
+        var chart_future = new google.visualization.LineChart(document.getElementById('curve_chart_future'));
+
+        chart_future.draw(data, options);
       }
     </script>
   </head>
   <body>
       <div ng-app="myApp">
         <div ng-controller="HomeController">
-          <button class="btn btn-primary" type="button" ng-click="getRealRates()">
+          <button id="show-real_rates" class="btn btn-primary" type="button" ng-click="getRealRates()">
             Current <span class="badge">{[{money.yahoo}]}</span> Click me for real rates!
           </button>
 
-          <button class="btn btn-primary" type="button" ng-repeat="rate in money.rates">
-            {{rate.label}} <span class="badge">{{rate.value}}</span>
-          </button>
-
-          <button class="btn btn-primary" type="button" ng-show="money.top">
-            {{money.top.provider}} <span class="badge">{{money.top.rate}}</span>
+          <button class="btn btn-primary" type="button" ng-repeat="rate in rates">
+            <a href="{{rate.ref}}" target="_blank" style="color:#56EC22">{{rate.label}} <span class="badge">{{rate.value}}</span></a>
           </button>
         </div>
+        <div id="curve_chart_past" ></div>
+        <div id="curve_chart_future" ></div>
+        <h1>USD INR forecast by month</h1>
+        <div class="table-responsive">
+          <table ng-controller="HomeController" class="table table-striped table-bordered table-condensed">
+            <tr ng-repeat="forecast in forecasts">
+                <td ng-repeat="value in forecast track by $index">{{value}}</td>
+            </tr>
+          </table>
+        </div>
+        Sorece: <a href="http://longforecast.com/fx/indian-rupee-to-dollar-forecast-for-2015-2016-and-2017.html">ref</a>
       </div>
-      <div id="curve_chart" ></div>
   </body>
 </html>
 {% endautoescape %}
